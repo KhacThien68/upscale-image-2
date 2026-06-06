@@ -1,5 +1,4 @@
 import threading
-import time
 import cv2
 import torch
 import urllib.request
@@ -21,8 +20,21 @@ MODELS_DIR.mkdir(exist_ok=True)
 USE_GPU = torch.cuda.is_available()
 HALF = USE_GPU
 
-TILE_SIZE = 256
-TILE_SLEEP = 0.05
+
+def _auto_tile_size() -> int:
+    if not USE_GPU:
+        return 256
+    vram_gb = torch.cuda.get_device_properties(0).total_memory / 1024 ** 3
+    if vram_gb >= 10:
+        return 768
+    if vram_gb >= 6:
+        return 512
+    if vram_gb >= 4:
+        return 384
+    return 256
+
+
+TILE_SIZE = _auto_tile_size()
 
 MODEL_CONFIGS = {
     "realesrgan-x4plus": {
@@ -53,17 +65,6 @@ GFPGAN_FILE = "GFPGANv1.4.pth"
 
 _upscaler_cache: dict = {}
 _gfpgan_cache = None
-
-
-def _apply_throttle(model, sleep):
-    if USE_GPU:
-        _original = model.forward
-        def _throttled(*args, **kwargs):
-            out = _original(*args, **kwargs)
-            torch.cuda.synchronize()
-            time.sleep(sleep)
-            return out
-        model.forward = _throttled
 
 
 def _download(url, dest, label):
@@ -104,8 +105,7 @@ def _get_upscaler(model_name: str) -> RealESRGANer:
         gpu_id=0 if USE_GPU else None,
     )
 
-    _apply_throttle(upscaler.model, TILE_SLEEP)
-    print(f'Model loaded: {model_name} ({"GPU fp16" if HALF else "CPU"}) | tile={TILE_SIZE} sleep={TILE_SLEEP}s')
+    print(f'Model loaded: {model_name} ({"GPU fp16" if HALF else "CPU"}) | tile={TILE_SIZE}')
 
     _upscaler_cache[model_name] = upscaler
     return upscaler
@@ -174,22 +174,31 @@ def process_image(
 
     progress_cb(20, f'Upscaling {w}×{h}...')
     try:
-        output, _ = upscaler.enhance(img, outscale=outscale)
+        with torch.no_grad():
+            output, _ = upscaler.enhance(img, outscale=outscale)
     except RuntimeError as e:
         if 'CUDA out of memory' in str(e):
             raise RuntimeError('GPU hết VRAM! Thử ảnh nhỏ hơn hoặc giảm tile size trong config.')
         raise
+    finally:
+        if USE_GPU:
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
 
     if face_enhance:
         check_cancel()
         progress_cb(75, 'Đang kích nét khuôn mặt (GFPGAN)...')
         face_enhancer = _get_face_enhancer()
-        _, _, output = face_enhancer.enhance(
-            output,
-            has_aligned=False,
-            only_center_face=False,
-            paste_back=True,
-        )
+        with torch.no_grad():
+            _, _, output = face_enhancer.enhance(
+                output,
+                has_aligned=False,
+                only_center_face=False,
+                paste_back=True,
+            )
+        if USE_GPU:
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
 
     if output.ndim == 3 and output.shape[2] == 4:
         output = cv2.cvtColor(output, cv2.COLOR_BGRA2BGR)

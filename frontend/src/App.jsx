@@ -18,7 +18,7 @@ export default function App() {
     scale: 4,
     faceEnhance: true,
     useTargetEdge: true,
-    targetEdge: 2042,
+    targetEdge: 2048,
   })
   const [selectedId, setSelectedId] = useState(null)
 

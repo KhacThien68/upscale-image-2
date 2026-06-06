@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import styles from './ModelSelector.module.css'
 
 const MODELS = [
@@ -18,7 +19,28 @@ const MODELS = [
   },
 ]
 
+const EDGE_PRESETS = [2048, 4096]
+
 export default function ModelSelector({ model, scale, faceEnhance, useTargetEdge, targetEdge, onChange, disabled }) {
+  const [customVal, setCustomVal] = useState('')
+
+  // preset is active only when no custom text is entered
+  const activePreset = customVal === ''
+    ? (EDGE_PRESETS.includes(targetEdge) ? targetEdge : null)
+    : null
+
+  const handlePreset = (val) => {
+    setCustomVal('')
+    onChange({ targetEdge: val })
+  }
+
+  const handleCustomChange = (e) => {
+    const raw = e.target.value
+    setCustomVal(raw)
+    const v = parseInt(raw, 10)
+    if (!isNaN(v) && v >= 64) onChange({ targetEdge: v })
+  }
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.label}>Model AI</div>
@@ -64,22 +86,35 @@ export default function ModelSelector({ model, scale, faceEnhance, useTargetEdge
       </div>
 
       {useTargetEdge ? (
-        <div className={styles.edgeRow}>
-          <input
-            type="number"
-            className={styles.edgeInput}
-            value={targetEdge}
-            min={256}
-            max={8192}
-            step={64}
-            disabled={disabled}
-            onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              if (!isNaN(v) && v > 0) onChange({ targetEdge: v })
-            }}
-          />
-          <span className={styles.edgeUnit}>px</span>
-        </div>
+        <>
+          <div className={styles.scaleRow}>
+            {EDGE_PRESETS.map(val => (
+              <button
+                key={val}
+                type="button"
+                className={[styles.scaleBtn, activePreset === val && styles.scaleActive].filter(Boolean).join(' ')}
+                onClick={() => handlePreset(val)}
+                disabled={disabled}
+              >
+                {val.toLocaleString()}
+              </button>
+            ))}
+          </div>
+          <div className={styles.edgeRow}>
+            <input
+              type="number"
+              className={[styles.edgeInput, activePreset === null && styles.edgeInputActive].filter(Boolean).join(' ')}
+              value={customVal}
+              placeholder="Tuỳ chỉnh..."
+              min={256}
+              max={16384}
+              step={64}
+              disabled={disabled}
+              onChange={handleCustomChange}
+            />
+            <span className={styles.edgeUnit}>px</span>
+          </div>
+        </>
       ) : (
         <div className={styles.scaleRow}>
           {[2, 4].map((s) => (
