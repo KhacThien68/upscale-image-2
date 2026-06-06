@@ -3,7 +3,7 @@ import CompareSlider from './components/CompareSlider'
 import ImageCard from './components/ImageCard'
 import ModelSelector from './components/ModelSelector'
 import UploadZone from './components/UploadZone'
-import { deleteJobBlobs, loadPreview, loadResult, persistJobs, restoreJobs, savePreview, saveResult } from './storage'
+import { clearAllStorage, deleteJobBlobs, savePreview, saveResult } from './storage'
 import styles from './App.module.css'
 
 let _seq = 0
@@ -24,6 +24,7 @@ export default function App() {
 
   const wsRefs      = useRef({})  // localId -> WebSocket
   const cancelledRef = useRef(new Set())
+  const savedDirHandle = useRef(null)
 
   const updateJob = useCallback((localId, patch) => {
     setJobs(prev => prev.map(j => j.localId === localId ? { ...j, ...patch } : j))
@@ -142,12 +143,84 @@ export default function App() {
     a.click()
   }, [options.scale])
 
-  const addFiles = useCallback((files) => {
-    const newJobs = files.map(file => {
+  const handleDownloadAll = useCallback(async () => {
+    const done = jobs.filter(j => j.status === 'done' && j.resultUrl)
+    if (!done.length) return
+
+    const baseName = name => name.replace(/\.[^.]+$/, '')
+    const resultName = job => `${baseName(job.file.name)}_${options.scale}x_upscaled.jpg`
+
+    if (!window.showDirectoryPicker) {
+      done.forEach(job => handleDownload(job))
+      return
+    }
+
+    // Kiểm tra xem handle đã lưu còn dùng được không
+    let dirHandle = savedDirHandle.current
+    if (dirHandle) {
+      const perm = await dirHandle.queryPermission({ mode: 'readwrite' })
+      if (perm !== 'granted') dirHandle = null
+    }
+
+    // Chỉ hỏi nếu chưa có handle hợp lệ — dialog tự mở tại thư mục nguồn
+    if (!dirHandle) {
+      const firstHandle = done.find(j => j.fileHandle)?.fileHandle
+      try {
+        dirHandle = await window.showDirectoryPicker({
+          mode: 'readwrite',
+          ...(firstHandle ? { startIn: firstHandle } : {}),
+        })
+        savedDirHandle.current = dirHandle
+      } catch (e) {
+        if (e.name !== 'AbortError') done.forEach(job => handleDownload(job))
+        return
+      }
+    }
+
+    const saveDir = await dirHandle.getDirectoryHandle('Anh chinh sua', { create: true })
+
+    for (const job of done) {
+      try {
+        const blob = await fetch(job.resultUrl).then(r => r.blob())
+        const fh = await saveDir.getFileHandle(resultName(job), { create: true })
+        const writable = await fh.createWritable()
+        await writable.write(blob)
+        await writable.close()
+      } catch {}
+    }
+  }, [jobs, handleDownload, options.scale])
+
+  const handleRetry = useCallback((job) => {
+    if (!(job.file instanceof File)) return
+    cancelledRef.current.delete(job.localId)
+    deleteJobBlobs(job.localId)
+    updateJob(job.localId, { jobId: null, resultUrl: null, resultSize: null, elapsed: null })
+    runJob(job, options, () => {})
+  }, [updateJob, runJob, options])
+
+  const handleClearAll = useCallback(async () => {
+    Object.keys(wsRefs.current).forEach(id => closeWS(id))
+    setJobs(prev => {
+      prev.forEach(j => {
+        if (j.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(j.previewUrl)
+        if (j.resultUrl?.startsWith('blob:')) URL.revokeObjectURL(j.resultUrl)
+      })
+      return []
+    })
+    setSelectedId(null)
+    cancelledRef.current.clear()
+    savedDirHandle.current = null
+    await clearAllStorage()
+    try { await fetch('/api/jobs/all', { method: 'DELETE' }) } catch {}
+  }, [closeWS])
+
+  const addFiles = useCallback((files, handles = []) => {
+    const newJobs = files.map((file, i) => {
       const localId = uid()
       savePreview(localId, file)
       return {
         localId, file,
+        fileHandle: handles[i] ?? null,
         previewUrl: URL.createObjectURL(file),
         imgDims: null,
         status: 'pending',
@@ -166,44 +239,10 @@ export default function App() {
     setJobs(prev => [...prev, ...newJobs])
   }, [])
 
-  // Persist jobs khi status thay đổi (không persist progress liên tục)
-  const statusSig = jobs.map(j => `${j.localId}:${j.status}:${j.jobId ?? ''}`).join('|')
-  useEffect(() => { if (jobs.length) persistJobs(jobs) }, [statusSig]) // eslint-disable-line
-
-  // Restore jobs từ localStorage + IndexedDB khi reload
+  // Xoá toàn bộ dữ liệu cũ khi reload trang
   useEffect(() => {
-    const saved = restoreJobs()
-    if (!saved.length) return
-
-    const restored = saved.map(r => ({
-      localId: r.localId,
-      file: { name: r.fileName },
-      previewUrl: null,
-      imgDims: r.imgDims ?? null,
-      status: r.status,
-      progress: r.progress ?? 0,
-      message: r.message ?? '',
-      jobId: r.jobId,
-      resultUrl: null,
-      resultSize: r.resultSize ?? null,
-      elapsed: r.elapsed ?? null,
-    }))
-
-    setJobs(restored)
-
-    restored.forEach(async (job) => {
-      const previewUrl = await loadPreview(job.localId)
-      if (previewUrl)
-        setJobs(prev => prev.map(j => j.localId === job.localId ? { ...j, previewUrl } : j))
-
-      if (job.status === 'done') {
-        const resultUrl = await loadResult(job.localId)
-        if (resultUrl)
-          setJobs(prev => prev.map(j => j.localId === job.localId ? { ...j, resultUrl } : j))
-      } else if (job.status === 'processing' && job.jobId) {
-        connectWS(job.localId, job.jobId)
-      }
-    })
+    clearAllStorage().catch(() => {})
+    fetch('/api/jobs/all', { method: 'DELETE' }).catch(() => {})
   }, []) // eslint-disable-line
 
   // Close modal on Escape
@@ -226,6 +265,7 @@ export default function App() {
 
   const pendingCount    = jobs.filter(j => j.status === 'pending').length
   const processingCount = jobs.filter(j => j.status === 'processing').length
+  const doneCount       = jobs.filter(j => j.status === 'done').length
   const selectedJob     = selectedId ? jobs.find(j => j.localId === selectedId) : null
 
   return (
@@ -274,15 +314,25 @@ export default function App() {
           </button>
 
           {jobs.length > 0 && (
-            <div className={styles.summary}>
-              <span>{jobs.filter(j => j.status === 'done').length}/{jobs.length} hoàn thành</span>
-              {jobs.some(j => j.status === 'error') && (
-                <span className={styles.errCount}>{jobs.filter(j => j.status === 'error').length} lỗi</span>
+            <>
+              <div className={styles.summary}>
+                <span>{doneCount}/{jobs.length} hoàn thành</span>
+                {jobs.some(j => j.status === 'error') && (
+                  <span className={styles.errCount}>{jobs.filter(j => j.status === 'error').length} lỗi</span>
+                )}
+                {jobs.some(j => j.status === 'cancelled') && (
+                  <span className={styles.cancelCount}>{jobs.filter(j => j.status === 'cancelled').length} đã hủy</span>
+                )}
+              </div>
+              {doneCount > 0 && (
+                <button className={styles.btnDownloadAll} onClick={handleDownloadAll}>
+                  ↓ Tải xuống tất cả ({doneCount})
+                </button>
               )}
-              {jobs.some(j => j.status === 'cancelled') && (
-                <span className={styles.cancelCount}>{jobs.filter(j => j.status === 'cancelled').length} đã hủy</span>
-              )}
-            </div>
+              <button className={styles.btnClearAll} onClick={handleClearAll}>
+                🗑 Xoá hết
+              </button>
+            </>
           )}
         </aside>
 
@@ -303,6 +353,7 @@ export default function App() {
                   onClick={() => job.status === 'done' && setSelectedId(job.localId)}
                   onDownload={() => handleDownload(job)}
                   onCancel={() => cancelJob(job.localId, job.jobId)}
+                  onRetry={job.file instanceof File ? () => handleRetry(job) : null}
                 />
               ))}
             </div>

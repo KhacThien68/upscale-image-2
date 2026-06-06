@@ -78,3 +78,14 @@ export function persistJobs(jobs) {
 export function restoreJobs() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]') } catch { return [] }
 }
+
+export async function clearAllStorage() {
+  localStorage.removeItem(LS_KEY)
+  const db = await openDB()
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    tx.objectStore(STORE).clear()
+    tx.oncomplete = res
+    tx.onerror = rej
+  })
+}

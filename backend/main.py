@@ -182,6 +182,24 @@ async def _run(job_id, input_path, output_path, model, scale, face_enhance, targ
         cancel_events.pop(job_id, None)
 
 
+@app.delete("/api/jobs/all")
+async def delete_all_jobs():
+    for event in list(cancel_events.values()):
+        event.set()
+
+    for f in RESULT_DIR.iterdir():
+        try: f.unlink()
+        except Exception: pass
+    for f in UPLOAD_DIR.iterdir():
+        try: f.unlink()
+        except Exception: pass
+
+    jobs.clear()
+    cancel_events.clear()
+    ws_queues.clear()
+    return {"ok": True}
+
+
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
     if job_id not in jobs:

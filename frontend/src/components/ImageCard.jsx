@@ -3,7 +3,7 @@ import styles from './ImageCard.module.css'
 const fmtSize = (b) =>
   b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`
 
-export default function ImageCard({ job, scale, onClick, onDownload, onCancel }) {
+export default function ImageCard({ job, scale, onClick, onDownload, onCancel, onRetry }) {
   const { file, previewUrl, status, progress, message, resultSize, elapsed } = job
 
   const cancellable = status === 'pending' || status === 'processing'
@@ -78,7 +78,18 @@ export default function ImageCard({ job, scale, onClick, onDownload, onCancel })
           </div>
         )}
 
-        {status === 'error'     && <span className={styles.errText}>Lỗi</span>}
+        {status === 'error' && (
+          <div className={styles.errRow}>
+            <span className={styles.errText}>Lỗi</span>
+            {onRetry && (
+              <button
+                className={styles.retryBtn}
+                onClick={(e) => { e.stopPropagation(); onRetry() }}
+                title={message || 'Thử lại'}
+              >↺ Thử lại</button>
+            )}
+          </div>
+        )}
         {status === 'cancelled' && <span className={styles.cancelledText}>Đã hủy</span>}
       </div>
     </div>

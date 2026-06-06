@@ -108,6 +108,32 @@
 .errCount      { color: var(--error); }
 .cancelCount   { color: var(--text-muted); }
 
+.btnDownloadAll {
+  width: 100%;
+  padding: 9px;
+  border-radius: 9px;
+  border: 1px solid var(--success);
+  background: transparent;
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background .15s, color .15s;
+}
+.btnDownloadAll:hover { background: var(--success); color: #fff; }
+
+.btnClearAll {
+  width: 100%;
+  padding: 8px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--error);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background .15s, border-color .15s;
+}
+.btnClearAll:hover { background: rgba(239,68,68,.1); border-color: var(--error); }
+
 /* ── Content area ── */
 .content {
   flex: 1;

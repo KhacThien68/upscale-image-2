@@ -9,13 +9,31 @@ export default function UploadZone({ onFiles, disabled }) {
 
   const handleFiles = (fileList) => {
     const valid = Array.from(fileList).filter(f => ACCEPT.includes(f.type))
-    if (valid.length) onFiles(valid)
+    if (valid.length) onFiles(valid, [])
   }
 
-  const onDrop = (e) => {
+  const onDrop = async (e) => {
     e.preventDefault()
     setDragging(false)
-    if (!disabled) handleFiles(e.dataTransfer.files)
+    if (disabled) return
+
+    // Capture handles synchronously before items become stale
+    const pending = Array.from(e.dataTransfer.items)
+      .filter(item => item.kind === 'file')
+      .map(item => ({
+        file: item.getAsFile(),
+        handleP: (item.getAsFileSystemHandle
+          ? item.getAsFileSystemHandle()
+          : Promise.resolve(null)
+        ).catch(() => null),
+      }))
+
+    const results = await Promise.all(
+      pending.map(async ({ file, handleP }) => ({ file, handle: await handleP }))
+    )
+
+    const valid = results.filter(r => r.file && ACCEPT.includes(r.file.type))
+    if (valid.length) onFiles(valid.map(r => r.file), valid.map(r => r.handle))
   }
 
   return (
