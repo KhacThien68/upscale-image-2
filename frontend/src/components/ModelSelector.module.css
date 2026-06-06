@@ -1,0 +1,80 @@
+.wrapper { display: flex; flex-direction: column; gap: 6px; }
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.card input[type=radio] { accent-color: var(--accent); width: 14px; height: 14px; flex-shrink: 0; }
+.card:hover:not(.disabled) { border-color: var(--accent); background: var(--surface3); }
+.active { border-color: var(--accent) !important; background: var(--surface3) !important; }
+.disabled { opacity: .5; cursor: default; pointer-events: none; }
+
+.cardLabel { font-size: 13px; font-weight: 500; }
+.cardDesc { font-size: 11px; color: var(--text-muted); }
+
+.scaleRow { display: flex; gap: 8px; }
+.scaleBtn {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  transition: all .15s;
+}
+.scaleBtn:hover:not(:disabled) { border-color: var(--accent); background: var(--surface3); }
+.scaleActive { border-color: var(--accent) !important; background: var(--surface3) !important; color: var(--accent); }
+.scaleBtn:disabled { opacity: .5; cursor: default; }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  cursor: pointer;
+  font-size: 13px;
+  margin-top: 4px;
+  transition: border-color .15s;
+  user-select: none;
+}
+.toggle:hover:not(.disabled) { border-color: var(--accent); }
+.toggle input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; flex-shrink: 0; }
+.toggle small { color: var(--text-muted); font-size: 11px; }
+
+.edgeRow { display: flex; align-items: center; gap: 8px; }
+.edgeInput {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--surface3);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  outline: none;
+  min-width: 0;
+}
+.edgeInput:disabled { opacity: .5; }
+.edgeUnit { font-size: 13px; color: var(--text-muted); white-space: nowrap; }

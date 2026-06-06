@@ -1,0 +1,23 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/tmp_basicsr/
+backend/tmp_pkg/
+
+# AI models (large binary files)
+backend/models/
+
+# Runtime data
+backend/uploads/
+backend/results/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Misc
+package-lock.json
+*.pth
+*.log

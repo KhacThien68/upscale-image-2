@@ -1,0 +1,27 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d12;
+  --surface:   #16161f;
+  --surface2:  #1e1e2a;
+  --surface3:  #252535;
+  --border:    #2a2a3d;
+  --accent:    #7c6af7;
+  --accent2:   #5a4fcf;
+  --text:      #e2e2f0;
+  --text-muted:#8888aa;
+  --success:   #22c55e;
+  --error:     #ef4444;
+  --radius:    10px;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+button { cursor: pointer; font-family: inherit; }
