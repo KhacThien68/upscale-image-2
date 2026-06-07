@@ -66,6 +66,30 @@
 .card:hover .cancelBtn { opacity: 1; }
 .cancelBtn:hover { background: var(--error) !important; }
 
+/* ── Delete button (top-right, hover) ── */
+.deleteBtn {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,.6);
+  color: #fff;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  opacity: 0;
+  transition: opacity .15s, background .15s;
+  cursor: pointer;
+  line-height: 1;
+}
+.card:hover .deleteBtn { opacity: 1; }
+.deleteBtn:hover { background: var(--error) !important; }
+
 /* ── Processing overlay ── */
 .overlay {
   position: absolute;

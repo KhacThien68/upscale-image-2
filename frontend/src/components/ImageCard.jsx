@@ -3,7 +3,7 @@ import styles from './ImageCard.module.css'
 const fmtSize = (b) =>
   b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`
 
-export default function ImageCard({ job, scale, onClick, onDownload, onCancel, onRetry }) {
+export default function ImageCard({ job, scale, onClick, onDownload, onCancel, onRetry, onDelete }) {
   const { file, previewUrl, status, progress, message, resultSize, elapsed } = job
 
   const cancellable = status === 'pending' || status === 'processing'
@@ -29,6 +29,13 @@ export default function ImageCard({ job, scale, onClick, onDownload, onCancel, o
             title="Hủy"
           >✕</button>
         )}
+
+        {/* Delete button (top-right, shown on hover, all statuses) */}
+        <button
+          className={styles.deleteBtn}
+          onClick={(e) => { e.stopPropagation(); onDelete() }}
+          title="Xoá"
+        >🗑</button>
 
         {/* Processing overlay */}
         {status === 'processing' && (

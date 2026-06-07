@@ -200,6 +200,22 @@ async def delete_all_jobs():
     return {"ok": True}
 
 
+@app.delete("/api/jobs/{job_id}")
+async def delete_job(job_id: str):
+    if job_id not in jobs:
+        raise HTTPException(404, "Job không tìm thấy")
+    if job_id in cancel_events:
+        cancel_events[job_id].set()
+    job = jobs.pop(job_id, {})
+    cancel_events.pop(job_id, None)
+    ws_queues.pop(job_id, None)
+    if job.get("input_path"):
+        Path(job["input_path"]).unlink(missing_ok=True)
+    if job.get("output_path"):
+        Path(job["output_path"]).unlink(missing_ok=True)
+    return {"ok": True}
+
+
 @app.get("/api/status/{job_id}")
 async def get_status(job_id: str):
     if job_id not in jobs:

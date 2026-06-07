@@ -190,6 +190,23 @@ export default function App() {
     }
   }, [jobs, handleDownload, options.scale])
 
+  const handleDelete = useCallback(async (localId, jobId) => {
+    closeWS(localId)
+    cancelledRef.current.add(localId)
+    setJobs(prev => {
+      const job = prev.find(j => j.localId === localId)
+      if (job) {
+        if (job.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(job.previewUrl)
+        if (job.resultUrl?.startsWith('blob:')) URL.revokeObjectURL(job.resultUrl)
+      }
+      return prev.filter(j => j.localId !== localId)
+    })
+    deleteJobBlobs(localId)
+    if (jobId) {
+      try { await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' }) } catch {}
+    }
+  }, [closeWS])
+
   const handleRetry = useCallback((job) => {
     if (!(job.file instanceof File)) return
     cancelledRef.current.delete(job.localId)
@@ -354,6 +371,7 @@ export default function App() {
                   onDownload={() => handleDownload(job)}
                   onCancel={() => cancelJob(job.localId, job.jobId)}
                   onRetry={job.file instanceof File ? () => handleRetry(job) : null}
+                  onDelete={() => handleDelete(job.localId, job.jobId)}
                 />
               ))}
             </div>
