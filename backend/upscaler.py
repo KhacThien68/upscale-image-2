@@ -156,6 +156,7 @@ def process_image(
 
     h, w = img.shape[:2]
     outscale = float(scale)
+    skip_upscale = False
 
     if target_edge > 0:
         max_side = max(h, w)
@@ -163,27 +164,33 @@ def process_image(
         out_w = round(w * outscale)
         out_h = round(h * outscale)
         if outscale < 1.0:
-            progress_cb(40, f'Resize {w}×{h} → {out_w}×{out_h}...')
+            # Target nhỏ hơn ảnh gốc — chỉ resize xuống, không chạy AI upscale
+            progress_cb(40, f'Resize {w}×{h} → {out_w}×{out_h} (bỏ qua upscale)...')
             img = cv2.resize(img, (out_w, out_h), interpolation=cv2.INTER_LANCZOS4)
-            outscale = 1.0
+            skip_upscale = True
 
     check_cancel()
-    progress_cb(5, 'Đang tải model AI...')
-    upscaler = _get_upscaler(model_name)
-    check_cancel()
 
-    progress_cb(20, f'Upscaling {w}×{h}...')
-    try:
-        with torch.no_grad():
-            output, _ = upscaler.enhance(img, outscale=outscale)
-    except RuntimeError as e:
-        if 'CUDA out of memory' in str(e):
-            raise RuntimeError('GPU hết VRAM! Thử ảnh nhỏ hơn hoặc giảm tile size trong config.')
-        raise
-    finally:
-        if USE_GPU:
-            torch.cuda.synchronize()
-            torch.cuda.empty_cache()
+    if skip_upscale:
+        output = img
+        progress_cb(75, 'Bỏ qua AI upscale (kích thước đích nhỏ hơn ảnh gốc)...')
+    else:
+        progress_cb(5, 'Đang tải model AI...')
+        upscaler = _get_upscaler(model_name)
+        check_cancel()
+
+        progress_cb(20, f'Upscaling {w}×{h}...')
+        try:
+            with torch.no_grad():
+                output, _ = upscaler.enhance(img, outscale=outscale)
+        except RuntimeError as e:
+            if 'CUDA out of memory' in str(e):
+                raise RuntimeError('GPU hết VRAM! Thử ảnh nhỏ hơn hoặc giảm tile size trong config.')
+            raise
+        finally:
+            if USE_GPU:
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
 
     if face_enhance:
         check_cancel()
